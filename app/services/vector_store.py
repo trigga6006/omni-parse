@@ -1,5 +1,6 @@
 """Vector store service for hybrid search using Supabase/PostgreSQL."""
 
+import json
 from typing import Optional
 from uuid import UUID
 
@@ -69,10 +70,10 @@ class VectorStoreService:
                     keyword_score,
                     combined_score
                 FROM hybrid_search(
-                    :embedding::vector,
+                    CAST(:embedding AS vector),
                     :query_text,
-                    :org_id::uuid,
-                    :doc_ids::uuid[],
+                    CAST(:org_id AS uuid),
+                    CAST(:doc_ids AS uuid[]),
                     :match_count,
                     :semantic_weight,
                     :keyword_weight,
@@ -148,18 +149,18 @@ class VectorStoreService:
                 dc.section_header,
                 dc.chunk_index,
                 dc.token_count,
-                1 - (dc.embedding <=> :embedding::vector) as score
+                1 - (dc.embedding <=> CAST(:embedding AS vector)) as score
             FROM document_chunks dc
             JOIN documents d ON dc.document_id = d.id
-            WHERE d.organization_id = :org_id::uuid
+            WHERE d.organization_id = CAST(:org_id AS uuid)
                 AND d.status = 'completed'
-                AND 1 - (dc.embedding <=> :embedding::vector) > :threshold
+                AND 1 - (dc.embedding <=> CAST(:embedding AS vector)) > :threshold
         """
 
         if document_ids:
-            sql += " AND dc.document_id = ANY(:doc_ids::uuid[])"
+            sql += " AND dc.document_id = ANY(CAST(:doc_ids AS uuid[]))"
 
-        sql += " ORDER BY dc.embedding <=> :embedding::vector LIMIT :limit"
+        sql += " ORDER BY dc.embedding <=> CAST(:embedding AS vector) LIMIT :limit"
 
         params = {
             "embedding": embedding_str,
@@ -223,7 +224,7 @@ class VectorStoreService:
                 similarity(dc.content, :query) * 0.5 as score
             FROM document_chunks dc
             JOIN documents d ON dc.document_id = d.id
-            WHERE d.organization_id = :org_id::uuid
+            WHERE d.organization_id = CAST(:org_id AS uuid)
                 AND d.status = 'completed'
                 AND (
                     dc.content_tsvector @@ plainto_tsquery('english', :query)
@@ -232,7 +233,7 @@ class VectorStoreService:
         """
 
         if document_ids:
-            sql += " AND dc.document_id = ANY(:doc_ids::uuid[])"
+            sql += " AND dc.document_id = ANY(CAST(:doc_ids AS uuid[]))"
 
         sql += " ORDER BY score DESC LIMIT :limit"
 
@@ -292,9 +293,9 @@ class VectorStoreService:
                         document_id, chunk_index, content, embedding,
                         page_number, section_header, token_count, metadata
                     ) VALUES (
-                        :document_id::uuid, :chunk_index, :content,
-                        :embedding::vector, :page_number, :section_header,
-                        :token_count, :metadata::jsonb
+                        CAST(:document_id AS uuid), :chunk_index, :content,
+                        CAST(:embedding AS vector), :page_number, :section_header,
+                        :token_count, CAST(:metadata AS jsonb)
                     )
                 """),
                 {
@@ -305,7 +306,7 @@ class VectorStoreService:
                     "page_number": chunk.get("page_number"),
                     "section_header": chunk.get("section_header"),
                     "token_count": chunk.get("token_count", len(chunk["content"].split())),
-                    "metadata": chunk.get("metadata", {}),
+                    "metadata": json.dumps(chunk.get("metadata", {})),
                 },
             )
 
@@ -325,7 +326,7 @@ class VectorStoreService:
             Number of chunks deleted
         """
         result = await db.execute(
-            text("DELETE FROM document_chunks WHERE document_id = :doc_id::uuid"),
+            text("DELETE FROM document_chunks WHERE document_id = CAST(:doc_id AS uuid)"),
             {"doc_id": str(document_id)},
         )
         await db.commit()

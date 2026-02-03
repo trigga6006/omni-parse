@@ -42,7 +42,7 @@ async def process_document_background(
                 text("""
                     UPDATE documents
                     SET status = 'processing', updated_at = NOW()
-                    WHERE id = :doc_id::uuid
+                    WHERE id = CAST(:doc_id AS uuid)
                 """),
                 {"doc_id": str(document_id)},
             )
@@ -77,7 +77,7 @@ async def process_document_background(
                     SET status = 'completed',
                         chunk_count = :chunk_count,
                         updated_at = NOW()
-                    WHERE id = :doc_id::uuid
+                    WHERE id = CAST(:doc_id AS uuid)
                 """),
                 {"doc_id": str(document_id), "chunk_count": chunk_count},
             )
@@ -89,7 +89,7 @@ async def process_document_background(
                     UPDATE organizations
                     SET storage_used_mb = storage_used_mb + :size_mb,
                         updated_at = NOW()
-                    WHERE id = :org_id::uuid
+                    WHERE id = CAST(:org_id AS uuid)
                 """),
                 {"org_id": str(org_id), "size_mb": file_size_mb},
             )
@@ -103,7 +103,7 @@ async def process_document_background(
                     SET status = 'failed',
                         error_message = :error,
                         updated_at = NOW()
-                    WHERE id = :doc_id::uuid
+                    WHERE id = CAST(:doc_id AS uuid)
                 """),
                 {"doc_id": str(document_id), "error": str(e)},
             )
@@ -156,7 +156,7 @@ async def upload_document(
                 organization_id, filename, title, description,
                 file_path, file_size, mime_type, status
             ) VALUES (
-                :org_id::uuid, :filename, :title, :description,
+                CAST(:org_id AS uuid), :filename, :title, :description,
                 '', :file_size, :mime_type, 'pending'
             )
             RETURNING id
@@ -180,7 +180,7 @@ async def upload_document(
 
     # Update file path
     await db.execute(
-        text("UPDATE documents SET file_path = :path WHERE id = :id::uuid"),
+        text("UPDATE documents SET file_path = :path WHERE id = CAST(:id AS uuid)"),
         {"path": file_path, "id": str(document_id)},
     )
     await db.commit()
@@ -215,7 +215,7 @@ async def list_documents(
     offset = (page - 1) * page_size
 
     # Build query
-    where_clause = "WHERE d.organization_id = :org_id::uuid"
+    where_clause = "WHERE d.organization_id = CAST(:org_id AS uuid)"
     params = {"org_id": str(org_id), "limit": page_size, "offset": offset}
 
     if status_filter:
@@ -289,7 +289,7 @@ async def get_document(
                 file_path, file_size, mime_type, status,
                 chunk_count, error_message, created_at, updated_at
             FROM documents
-            WHERE id = :doc_id::uuid AND organization_id = :org_id::uuid
+            WHERE id = CAST(:doc_id AS uuid) AND organization_id = CAST(:org_id AS uuid)
         """),
         {"doc_id": str(document_id), "org_id": str(org_id)},
     )
@@ -331,7 +331,7 @@ async def delete_document(
         text("""
             SELECT filename, file_size
             FROM documents
-            WHERE id = :doc_id::uuid AND organization_id = :org_id::uuid
+            WHERE id = CAST(:doc_id AS uuid) AND organization_id = CAST(:org_id AS uuid)
         """),
         {"doc_id": str(document_id), "org_id": str(org_id)},
     )
@@ -348,7 +348,7 @@ async def delete_document(
 
     # Delete document (cascades to chunks)
     await db.execute(
-        text("DELETE FROM documents WHERE id = :doc_id::uuid"),
+        text("DELETE FROM documents WHERE id = CAST(:doc_id AS uuid)"),
         {"doc_id": str(document_id)},
     )
 
@@ -359,7 +359,7 @@ async def delete_document(
             UPDATE organizations
             SET storage_used_mb = GREATEST(0, storage_used_mb - :size_mb),
                 updated_at = NOW()
-            WHERE id = :org_id::uuid
+            WHERE id = CAST(:org_id AS uuid)
         """),
         {"org_id": str(org_id), "size_mb": file_size_mb},
     )
@@ -381,7 +381,7 @@ async def reprocess_document(
         text("""
             SELECT id, filename, file_path, status
             FROM documents
-            WHERE id = :doc_id::uuid AND organization_id = :org_id::uuid
+            WHERE id = CAST(:doc_id AS uuid) AND organization_id = CAST(:org_id AS uuid)
         """),
         {"doc_id": str(document_id), "org_id": str(org_id)},
     )
@@ -407,7 +407,7 @@ async def reprocess_document(
         text("""
             UPDATE documents
             SET status = 'pending', error_message = NULL, chunk_count = 0
-            WHERE id = :doc_id::uuid
+            WHERE id = CAST(:doc_id AS uuid)
         """),
         {"doc_id": str(document_id)},
     )

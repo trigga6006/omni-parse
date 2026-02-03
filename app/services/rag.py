@@ -242,7 +242,7 @@ class RAGService:
         for chunk in chunks:
             # Get document title
             result = await db.execute(
-                text("SELECT title, filename FROM documents WHERE id = :doc_id::uuid"),
+                text("SELECT title, filename FROM documents WHERE id = CAST(:doc_id AS uuid)"),
                 {"doc_id": str(chunk.document_id)},
             )
             row = result.fetchone()

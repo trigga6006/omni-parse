@@ -101,7 +101,7 @@ async def check_usage_limits(
         text("""
             SELECT subscription_tier, document_count, storage_used_mb
             FROM organizations
-            WHERE id = :org_id::uuid
+            WHERE id = CAST(:org_id AS uuid)
         """),
         {"org_id": str(org_id)},
     )
@@ -117,7 +117,7 @@ async def check_usage_limits(
     monthly_result = await db.execute(
         text("""
             SELECT COUNT(*) FROM query_logs
-            WHERE organization_id = :org_id::uuid
+            WHERE organization_id = CAST(:org_id AS uuid)
                 AND created_at >= date_trunc('month', CURRENT_DATE)
         """),
         {"org_id": str(org_id)},
@@ -147,7 +147,7 @@ async def check_document_limit(
         text("""
             SELECT subscription_tier, document_count
             FROM organizations
-            WHERE id = :org_id::uuid
+            WHERE id = CAST(:org_id AS uuid)
         """),
         {"org_id": str(org_id)},
     )
@@ -181,7 +181,7 @@ async def check_storage_limit(
         text("""
             SELECT subscription_tier, storage_used_mb
             FROM organizations
-            WHERE id = :org_id::uuid
+            WHERE id = CAST(:org_id AS uuid)
         """),
         {"org_id": str(org_id)},
     )

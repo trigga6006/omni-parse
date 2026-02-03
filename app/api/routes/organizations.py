@@ -52,7 +52,7 @@ async def get_current_organization(
                 document_count, query_count, storage_used_mb,
                 created_at, updated_at
             FROM organizations
-            WHERE id = :org_id::uuid
+            WHERE id = CAST(:org_id AS uuid)
         """),
         {"org_id": str(org_id)},
     )
@@ -89,7 +89,7 @@ async def get_organization_stats(
         text("""
             SELECT subscription_tier, document_count, query_count, storage_used_mb
             FROM organizations
-            WHERE id = :org_id::uuid
+            WHERE id = CAST(:org_id AS uuid)
         """),
         {"org_id": str(org_id)},
     )
@@ -106,7 +106,7 @@ async def get_organization_stats(
         text("""
             SELECT COUNT(*) FROM document_chunks dc
             JOIN documents d ON dc.document_id = d.id
-            WHERE d.organization_id = :org_id::uuid
+            WHERE d.organization_id = CAST(:org_id AS uuid)
         """),
         {"org_id": str(org_id)},
     )
@@ -116,7 +116,7 @@ async def get_organization_stats(
     monthly_result = await db.execute(
         text("""
             SELECT COUNT(*) FROM query_logs
-            WHERE organization_id = :org_id::uuid
+            WHERE organization_id = CAST(:org_id AS uuid)
                 AND created_at >= date_trunc('month', CURRENT_DATE)
         """),
         {"org_id": str(org_id)},
@@ -145,7 +145,7 @@ async def get_usage_stats(
         text("""
             SELECT subscription_tier, document_count, query_count, storage_used_mb
             FROM organizations
-            WHERE id = :org_id::uuid
+            WHERE id = CAST(:org_id AS uuid)
         """),
         {"org_id": str(org_id)},
     )
@@ -161,7 +161,7 @@ async def get_usage_stats(
     monthly_result = await db.execute(
         text("""
             SELECT COUNT(*) FROM query_logs
-            WHERE organization_id = :org_id::uuid
+            WHERE organization_id = CAST(:org_id AS uuid)
                 AND created_at >= date_trunc('month', CURRENT_DATE)
         """),
         {"org_id": str(org_id)},
@@ -193,7 +193,7 @@ async def update_organization(
         text("""
             UPDATE organizations
             SET name = :name, updated_at = NOW()
-            WHERE id = :org_id::uuid
+            WHERE id = CAST(:org_id AS uuid)
         """),
         {"org_id": str(org_id), "name": name},
     )
@@ -207,7 +207,7 @@ async def update_organization(
                 document_count, query_count, storage_used_mb,
                 created_at, updated_at
             FROM organizations
-            WHERE id = :org_id::uuid
+            WHERE id = CAST(:org_id AS uuid)
         """),
         {"org_id": str(org_id)},
     )

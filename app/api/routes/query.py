@@ -1,5 +1,6 @@
 """Query endpoints for RAG pipeline."""
 
+import json
 from typing import Optional
 from uuid import UUID
 
@@ -31,7 +32,7 @@ async def query_documents(
     result = await db.execute(
         text("""
             SELECT COUNT(*) FROM documents
-            WHERE organization_id = :org_id::uuid AND status = 'completed'
+            WHERE organization_id = CAST(:org_id AS uuid) AND status = 'completed'
         """),
         {"org_id": str(org_id)},
     )
@@ -48,8 +49,8 @@ async def query_documents(
         result = await db.execute(
             text("""
                 SELECT COUNT(*) FROM documents
-                WHERE id = ANY(:doc_ids::uuid[])
-                    AND organization_id = :org_id::uuid
+                WHERE id = ANY(CAST(:doc_ids AS uuid[]))
+                    AND organization_id = CAST(:org_id AS uuid)
                     AND status = 'completed'
             """),
             {
@@ -83,8 +84,8 @@ async def query_documents(
                 organization_id, session_id, query, answer,
                 source_chunks, processing_time_ms, cached
             ) VALUES (
-                :org_id::uuid, :session_id, :query, :answer,
-                :sources::jsonb, :processing_time, :cached
+                CAST(:org_id AS uuid), :session_id, :query, :answer,
+                CAST(:sources AS jsonb), :processing_time, :cached
             )
         """),
         {
@@ -92,7 +93,7 @@ async def query_documents(
             "session_id": response.session_id,
             "query": request.query,
             "answer": response.answer,
-            "sources": [{"chunk_id": str(s.chunk_id), "score": s.relevance_score} for s in response.sources],
+            "sources": json.dumps([{"chunk_id": str(s.chunk_id), "score": s.relevance_score} for s in response.sources]),
             "processing_time": response.processing_time_ms,
             "cached": response.cached,
         },
@@ -117,7 +118,7 @@ async def query_documents_streaming(
     result = await db.execute(
         text("""
             SELECT COUNT(*) FROM documents
-            WHERE organization_id = :org_id::uuid AND status = 'completed'
+            WHERE organization_id = CAST(:org_id AS uuid) AND status = 'completed'
         """),
         {"org_id": str(org_id)},
     )
@@ -167,7 +168,7 @@ async def get_query_history(
         "offset": offset,
     }
 
-    where_clause = "WHERE organization_id = :org_id::uuid"
+    where_clause = "WHERE organization_id = CAST(:org_id AS uuid)"
     if session_id:
         where_clause += " AND session_id = :session_id"
         params["session_id"] = session_id

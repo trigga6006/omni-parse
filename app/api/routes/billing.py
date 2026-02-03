@@ -37,7 +37,7 @@ async def create_checkout_session(
         text("""
             SELECT stripe_customer_id, clerk_org_id, name
             FROM organizations
-            WHERE id = :org_id::uuid
+            WHERE id = CAST(:org_id AS uuid)
         """),
         {"org_id": str(org_id)},
     )
@@ -67,7 +67,7 @@ async def create_checkout_session(
             text("""
                 UPDATE organizations
                 SET stripe_customer_id = :customer_id, updated_at = NOW()
-                WHERE id = :org_id::uuid
+                WHERE id = CAST(:org_id AS uuid)
             """),
             {"org_id": str(org_id), "customer_id": customer_id},
         )
@@ -107,7 +107,7 @@ async def get_subscription_status(
         text("""
             SELECT subscription_tier, stripe_subscription_id
             FROM organizations
-            WHERE id = :org_id::uuid
+            WHERE id = CAST(:org_id AS uuid)
         """),
         {"org_id": str(org_id)},
     )
@@ -149,7 +149,7 @@ async def create_portal_session(
 ):
     """Create a Stripe customer portal session."""
     result = await db.execute(
-        text("SELECT stripe_customer_id FROM organizations WHERE id = :org_id::uuid"),
+        text("SELECT stripe_customer_id FROM organizations WHERE id = CAST(:org_id AS uuid)"),
         {"org_id": str(org_id)},
     )
     org = result.fetchone()
@@ -230,7 +230,7 @@ async def handle_checkout_completed(session: dict) -> None:
                 SET subscription_tier = :tier,
                     stripe_subscription_id = :sub_id,
                     updated_at = NOW()
-                WHERE id = :org_id::uuid
+                WHERE id = CAST(:org_id AS uuid)
             """),
             {"org_id": org_id, "tier": tier.value, "sub_id": subscription_id},
         )
