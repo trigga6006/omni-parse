@@ -174,9 +174,21 @@ async def upload_document(
     await db.commit()
 
     # Upload to storage
-    file_path = await storage_service.upload_file(
-        org_id, document_id, file.filename, content
-    )
+    try:
+        file_path = await storage_service.upload_file(
+            org_id, document_id, file.filename, content
+        )
+    except Exception as e:
+        # Clean up the document record if storage upload fails
+        await db.execute(
+            text("DELETE FROM documents WHERE id = CAST(:id AS uuid)"),
+            {"id": str(document_id)},
+        )
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to upload file to storage: {e}",
+        )
 
     # Update file path
     await db.execute(
