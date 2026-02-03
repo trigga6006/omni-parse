@@ -40,24 +40,24 @@ class Settings(BaseSettings):
     clerk_webhook_secret: str
     clerk_publishable_key: Optional[str] = None
 
-    # OpenAI
-    openai_api_key: str
+    # OpenAI (optional - required for embeddings/queries)
+    openai_api_key: Optional[str] = None
     embedding_model: str = "text-embedding-3-small"
     embedding_dimensions: int = 1536
 
-    # Anthropic
-    anthropic_api_key: str
+    # Anthropic (optional - required for LLM responses)
+    anthropic_api_key: Optional[str] = None
     anthropic_model: str = "claude-sonnet-4-20250514"
     max_tokens: int = 4096
 
-    # Cohere
-    cohere_api_key: str
+    # Cohere (optional - required for reranking)
+    cohere_api_key: Optional[str] = None
     rerank_model: str = "rerank-english-v3.0"
     rerank_top_n: int = 5
 
-    # Stripe
-    stripe_secret_key: str
-    stripe_webhook_secret: str
+    # Stripe (optional - required for billing)
+    stripe_secret_key: Optional[str] = None
+    stripe_webhook_secret: Optional[str] = None
     stripe_price_id_basic: Optional[str] = None
     stripe_price_id_pro: Optional[str] = None
 
