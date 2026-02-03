@@ -65,10 +65,10 @@ CREATE TABLE document_chunks (
 
 CREATE INDEX idx_chunks_document ON document_chunks(document_id, chunk_index);
 
--- Vector similarity index (IVFFlat for faster queries)
+-- Vector similarity index (HNSW - no rebuild needed after inserts)
 CREATE INDEX idx_chunks_embedding ON document_chunks
-    USING ivfflat (embedding vector_cosine_ops)
-    WITH (lists = 100);
+    USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 64);
 
 -- Full-text search index
 CREATE INDEX idx_chunks_tsvector ON document_chunks USING GIN(content_tsvector);
