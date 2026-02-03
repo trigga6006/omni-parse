@@ -87,8 +87,8 @@ class EmbeddingService:
         if uncached_texts:
             client = self._get_client()
 
-            # OpenAI allows up to 2048 embeddings per request
-            batch_size = 2048
+            # Keep API batches small to limit memory from holding many embeddings
+            batch_size = 50
             for i in range(0, len(uncached_texts), batch_size):
                 batch = uncached_texts[i : i + batch_size]
 

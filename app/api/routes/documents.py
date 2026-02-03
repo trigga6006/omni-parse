@@ -33,6 +33,7 @@ async def process_document_background(
     file_content: bytes,
 ) -> None:
     """Background task to process uploaded document."""
+    import gc
     from app.dependencies import get_db_context
 
     async with get_db_context() as db:
@@ -48,27 +49,35 @@ async def process_document_background(
             )
             await db.commit()
 
-            # Process document and generate embeddings
-            processed, embeddings = await document_processor.process_and_embed(
-                file_content, filename
-            )
+            # Track file size before we free the bytes
+            file_size_mb = len(file_content) / (1024 * 1024)
 
-            # Prepare chunks with embeddings
-            chunks_data = []
-            for chunk, embedding in zip(processed.chunks, embeddings):
-                chunks_data.append({
-                    "content": chunk.content,
-                    "embedding": embedding,
-                    "page_number": chunk.page_number,
-                    "section_header": chunk.section_header,
-                    "token_count": chunk.token_count,
-                    "metadata": chunk.metadata,
-                })
+            # Parse PDF into chunks, then free the raw bytes
+            processed = await document_processor.process_pdf(file_content, filename)
+            del file_content
+            gc.collect()
 
-            # Insert chunks into vector store
-            chunk_count = await vector_store_service.insert_chunks(
-                db, document_id, chunks_data
-            )
+            # Embed and insert in batches to limit peak memory
+            total_chunks = 0
+            async for batch_chunks, embeddings in document_processor.embed_chunks_batched(
+                processed.chunks, batch_size=20
+            ):
+                batch_data = []
+                for chunk, embedding in zip(batch_chunks, embeddings):
+                    batch_data.append({
+                        "content": chunk.content,
+                        "embedding": embedding,
+                        "page_number": chunk.page_number,
+                        "section_header": chunk.section_header,
+                        "token_count": chunk.token_count,
+                        "metadata": chunk.metadata,
+                    })
+
+                total_chunks += await vector_store_service.insert_chunks(
+                    db, document_id, batch_data
+                )
+                del batch_data, batch_chunks, embeddings
+                gc.collect()
 
             # Update document status to completed
             await db.execute(
@@ -79,11 +88,10 @@ async def process_document_background(
                         updated_at = NOW()
                     WHERE id = CAST(:doc_id AS uuid)
                 """),
-                {"doc_id": str(document_id), "chunk_count": chunk_count},
+                {"doc_id": str(document_id), "chunk_count": total_chunks},
             )
 
             # Update organization storage usage
-            file_size_mb = len(file_content) / (1024 * 1024)
             await db.execute(
                 text("""
                     UPDATE organizations

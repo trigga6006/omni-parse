@@ -62,6 +62,8 @@ class DocumentProcessor:
         Returns:
             ProcessedDocument with chunks and metadata
         """
+        import gc
+
         # Extract text with structure using PyMuPDF
         doc = fitz.open(stream=file_content, filetype="pdf")
 
@@ -74,12 +76,17 @@ class DocumentProcessor:
             pages_content.append(page_data)
 
         doc.close()
+        del doc
+        gc.collect()
 
-        # Extract tables using pdfplumber
+        # Extract tables using pdfplumber (after PyMuPDF is freed)
         tables = self._extract_tables(file_content)
+        gc.collect()
 
         # Create chunks with structure awareness
         chunks = self._create_chunks(pages_content, tables)
+        del pages_content, tables
+        gc.collect()
 
         # Calculate total tokens
         total_tokens = sum(c.token_count for c in chunks)
@@ -268,26 +275,27 @@ class DocumentProcessor:
         overlap_words = words[-self.chunk_overlap:]
         return " ".join(overlap_words)
 
-    async def process_and_embed(
-        self, file_content: bytes, filename: str
-    ) -> tuple[ProcessedDocument, list[list[float]]]:
-        """Process document and generate embeddings for all chunks.
+    async def embed_chunks_batched(
+        self, chunks: list[DocumentChunk], batch_size: int = 20
+    ):
+        """Generate embeddings for chunks in batches to limit memory.
 
         Args:
-            file_content: PDF file bytes
-            filename: Original filename
+            chunks: List of DocumentChunks to embed
+            batch_size: Number of chunks to embed at a time
 
-        Returns:
-            Tuple of (ProcessedDocument, list of embeddings)
+        Yields:
+            Tuple of (batch of DocumentChunks, batch of embeddings)
         """
-        # Process document
-        processed = await self.process_pdf(file_content, filename)
+        import gc
 
-        # Generate embeddings for all chunks
-        texts = [chunk.content for chunk in processed.chunks]
-        embeddings = await embedding_service.get_embeddings_batch(texts)
-
-        return processed, embeddings
+        for i in range(0, len(chunks), batch_size):
+            batch_chunks = chunks[i : i + batch_size]
+            texts = [chunk.content for chunk in batch_chunks]
+            embeddings = await embedding_service.get_embeddings_batch(texts)
+            yield batch_chunks, embeddings
+            del texts, embeddings
+            gc.collect()
 
 
 # Clean text utility
