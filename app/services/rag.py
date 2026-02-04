@@ -89,9 +89,28 @@ class RAGService:
             top_k=settings.initial_results,
         )
 
+        # Fallback: if hybrid search finds nothing, try semantic search with no threshold
         if not initial_chunks:
-            # No relevant documents found
-            answer = "I couldn't find any relevant information in the documentation to answer your question. Please try rephrasing your question or ensure the relevant documents have been uploaded."
+            initial_chunks = await vector_store_service.semantic_search(
+                db=db,
+                query=query,
+                org_id=org_id,
+                document_ids=document_ids,
+                top_k=settings.initial_results,
+                similarity_threshold=0.0,
+            )
+
+        # If still nothing, pass all available chunks to the LLM
+        if not initial_chunks:
+            initial_chunks = await vector_store_service.get_all_chunks(
+                db=db,
+                org_id=org_id,
+                document_ids=document_ids,
+                limit=settings.initial_results,
+            )
+
+        if not initial_chunks:
+            answer = "No document chunks are available. Please upload a document and wait for processing to complete."
 
             await self._save_to_memory(
                 org_id, session_id, query, answer, []
@@ -200,8 +219,28 @@ class RAGService:
             top_k=settings.initial_results,
         )
 
+        # Fallback: semantic search with no threshold
         if not initial_chunks:
-            yield f"data: {json.dumps({'type': 'error', 'content': 'No relevant documents found'})}\n\n"
+            initial_chunks = await vector_store_service.semantic_search(
+                db=db,
+                query=query,
+                org_id=org_id,
+                document_ids=document_ids,
+                top_k=settings.initial_results,
+                similarity_threshold=0.0,
+            )
+
+        # Last resort: fetch all available chunks
+        if not initial_chunks:
+            initial_chunks = await vector_store_service.get_all_chunks(
+                db=db,
+                org_id=org_id,
+                document_ids=document_ids,
+                limit=settings.initial_results,
+            )
+
+        if not initial_chunks:
+            yield f"data: {json.dumps({'type': 'error', 'content': 'No document chunks available. Please upload a document and wait for processing to complete.'})}\n\n"
             return
 
         # Rerank

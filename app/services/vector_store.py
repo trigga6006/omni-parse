@@ -47,7 +47,7 @@ class VectorStoreService:
         # Use configured weights or defaults
         sem_weight = semantic_weight or settings.semantic_weight
         kw_weight = keyword_weight or settings.keyword_weight
-        threshold = similarity_threshold or settings.similarity_threshold
+        threshold = similarity_threshold if similarity_threshold is not None else settings.similarity_threshold
 
         # Format embedding for PostgreSQL
         embedding_str = "[" + ",".join(str(x) for x in query_embedding) + "]"
@@ -136,7 +136,7 @@ class VectorStoreService:
             List of chunks with scores
         """
         query_embedding = await embedding_service.get_query_embedding(query)
-        threshold = similarity_threshold or settings.similarity_threshold
+        threshold = similarity_threshold if similarity_threshold is not None else settings.similarity_threshold
 
         embedding_str = "[" + ",".join(str(x) for x in query_embedding) + "]"
 
@@ -261,6 +261,59 @@ class VectorStoreService:
                 score=row.score,
                 semantic_score=0.0,
                 keyword_score=row.score,
+            )
+            for row in rows
+        ]
+
+    async def get_all_chunks(
+        self,
+        db: AsyncSession,
+        org_id: UUID,
+        document_ids: Optional[list[UUID]] = None,
+        limit: int = 20,
+    ) -> list[ChunkWithScore]:
+        """Fetch all chunks for an org without any search filtering.
+
+        Last resort fallback when search returns nothing.
+        """
+        sql = """
+            SELECT
+                dc.id as chunk_id,
+                dc.document_id,
+                dc.content,
+                dc.page_number,
+                dc.section_header,
+                dc.chunk_index,
+                dc.token_count
+            FROM document_chunks dc
+            JOIN documents d ON dc.document_id = d.id
+            WHERE d.organization_id = CAST(:org_id AS uuid)
+                AND d.status = 'completed'
+        """
+
+        params = {"org_id": str(org_id), "limit": limit}
+
+        if document_ids:
+            sql += " AND dc.document_id = ANY(CAST(:doc_ids AS uuid[]))"
+            params["doc_ids"] = [str(d) for d in document_ids]
+
+        sql += " ORDER BY dc.chunk_index LIMIT :limit"
+
+        result = await db.execute(text(sql), params)
+        rows = result.fetchall()
+
+        return [
+            ChunkWithScore(
+                id=row.chunk_id,
+                document_id=row.document_id,
+                content=row.content,
+                page_number=row.page_number,
+                section_header=row.section_header,
+                chunk_index=row.chunk_index,
+                token_count=row.token_count,
+                score=1.0,
+                semantic_score=0.0,
+                keyword_score=0.0,
             )
             for row in rows
         ]

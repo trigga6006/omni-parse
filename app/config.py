@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     # Search Configuration
     semantic_weight: float = 0.7
     keyword_weight: float = 0.3
-    similarity_threshold: float = 0.3
+    similarity_threshold: float = 0.0
     initial_results: int = 20
 
     # Cache Configuration
