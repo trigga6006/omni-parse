@@ -157,7 +157,7 @@ class RAGService:
                 query,
                 {
                     "answer": answer,
-                    "sources": [s.model_dump() for s in sources],
+                    "sources": [s.model_dump(mode='json') for s in sources],
                 },
                 [str(d) for d in document_ids] if document_ids else None,
             )
@@ -252,7 +252,7 @@ class RAGService:
 
         # Send sources first
         sources = await self._build_sources(db, reranked_chunks)
-        yield f"data: {json.dumps({'type': 'sources', 'content': [s.model_dump() for s in sources]})}\n\n"
+        yield f"data: {json.dumps({'type': 'sources', 'content': [s.model_dump(mode='json') for s in sources]})}\n\n"
 
         # Stream response
         full_response = []
@@ -319,7 +319,7 @@ class RAGService:
             session_id,
             "assistant",
             answer,
-            [s.model_dump() for s in sources] if sources else None,
+            [s.model_dump(mode='json') for s in sources] if sources else None,
         )
 
 
